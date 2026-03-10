@@ -20,9 +20,9 @@ def connect_to_api():
 
             response.raise_for_status()
 
-            data = response
+            data = response.json()
     
-            logger.info("stocks succesfully loaded")
+            logger.info(f"Stocks {stocks[stock]} loaded successfully")
 
             json_response.append(data)
 
@@ -30,10 +30,14 @@ def connect_to_api():
             logger.error(f"Error on stock: {e}")
             break
 
-def extract_json(rsponse):
+    return json_response
+
+
+
+def extract_json(response):
     records = []
 
-    for data in rsponse:
+    for data in response:
         symbol = data['Meta Data']['2. Symbol']
 
         for date_str, metrics in data['Time Series (5min)'].items():

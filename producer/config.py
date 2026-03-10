@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 BASEURL = "alpha-vantage.p.rapidapi.com"
 
-url = "https://{BASEURL}/query"
+url = f"https://{BASEURL}/query"
 
 api_key = os.getenv('API_KEY')
 
