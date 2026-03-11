@@ -1,0 +1,142 @@
+services:
+
+  # -----------------------------
+  # Spark Master Node
+  # -----------------------------
+  spark-master:
+    image: spark:3.5.1-python3  # Use the official Apache Spark image with Python support (v3.5.7)
+    container_name: spark-master
+    command: [
+      "/opt/spark/bin/spark-class",           # Spark class runner
+      "org.apache.spark.deploy.master.Master", # Start Spark master
+      "--host","spark-master",                 # Hostname for master node
+      "--port","7077",                         # Port for Spark cluster communication
+      "--webui-port","8080"  # Port for Spark Web UI. Sets the host name that nodes use to reach the master
+    ]
+    environment:
+      - SPARK_MODE=master                      # (Optional variable). Sets container as Spark Master
+      - SPARK_MASTER_HOST=spark-master         # Host name for the Spark Master, used by workers to locate it. 
+    ports:
+      - "8081:8080"  # Map Spark Master Web UI to host (http://localhost:8081)
+      - "7077:7077"  # Spark cluster communication port
+    volumes:
+      - spark-data:/opt/spark-data             # Mount a named volume to persist Spark data/logs
+    networks:
+      - stock_data                              # Connects the container to to shared network
+
+  # -----------------------------
+  # Spark Worker Node
+  # -----------------------------
+  spark-worker:
+    image: spark:3.5.1-python3
+    container_name: spark-worker  # name for the worker container
+    command: [                    # override the default container command to start the Spark master manually
+      "/opt/spark/bin/spark-class",
+      "org.apache.spark.deploy.worker.Worker", # Start Spark Worker
+      "spark://spark-master:7077",             # Connect to Spark Master
+      "--webui-port","8081"                    # Port for Spark Worker UI
+    ]
+    environment:
+      - SPARK_WORKER_CORES=2                  # Number of cores assigned
+      - SPARK_WORKER_MEMORY=2G                # Memory assigned to worker
+    depends_on:
+      - spark-master                            # Ensure master starts first
+    volumes:
+      - spark-data:/opt/spark-data             # Share the same named for volume logs/data with master if needed
+    networks:
+      - stock_data
+
+  # -----------------------------
+  # Kafka Broker in KRaft Mode (No Zookeeper)
+  # -----------------------------
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: kafka
+    hostname: kafka
+    ports:
+      - "9092:9092"   # External port for host machine scripts/tools
+      - "9094:9094"   # Optional external port
+    environment:
+      KAFKA_KRAFT_MODE: "true"                    # Enable KRaft mode (no Zookeeper)
+      KAFKA_PROCESS_ROLES: controller,broker      # Broker also acts as controller
+      KAFKA_BROKER_ID: 1                          # Unique broker ID
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093" # Controller quorum configuration
+      KAFKA_LISTENERS: PLAINTEXT_INTERNAL://kafka:9092,PLAINTEXT_EXTERNAL://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT_INTERNAL:PLAINTEXT,PLAINTEXT_EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT_INTERNAL://kafka:9092,PLAINTEXT_EXTERNAL://localhost:9094
+      KAFKA_LOGS_DIRS: /var/lib/kafka/data
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"     # Auto-create topics if not exist
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1   # Single-broker replication
+      KAFKA_LOG_RETENTION_HOURS: 168             # Log retention 7 days
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0  # Reduce consumer group rebalance delay
+      CLUSTER_ID: "veV7vmVXQCCawZZrb8YzKg"         # Must be a valid Kafka cluster UUID
+    volumes:
+      - kafka_data:/var/lib/kafka/data          # Persist Kafka message data/logs
+    networks:
+      - stock_data
+
+  # -----------------------------
+  # Kafka UI for monitoring topics
+  # -----------------------------
+  kafka-ui:
+    container_name: kafka_ui                  # Name for kafka ui container
+    image: provectuslabs/kafka-ui:v0.7.2      # use Provectus (Open-source Web interface for Kafka clusters)
+    ports:
+      - "8085:8080"  # Access Kafka UI at http://localhost:8085
+    depends_on:
+      - kafka         # Ensures kafka starts before the UI
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local               # Cluster name to display in the UI
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092  # Kafka bootstrap server. Internal kafka connect
+      DYNAMIC_CONFIG_ENABLED: 'true'            # Enable dynamic config updates
+    networks:
+      - stock_data                             # Attach UI to same network as kafka
+
+  # -----------------------------
+  # PostgreSQL Database
+  # -----------------------------
+  postgres:
+    image: debezium/postgres:17
+    container_name: postgres_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: stock_data
+    ports:
+      - "5432:5432"  # Default PostgreSQL port
+    volumes:
+      - postgres_data:/var/lib/postgresql/data  # Persist database
+    networks:
+      - stock_data
+
+  # -----------------------------
+  # pgAdmin Web Interface for PostgreSQL
+  # -----------------------------
+  pgadmin:
+    image: dpage/pgadmin4:9
+    container_name: pgadmin
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+    ports:
+      - "5050:80"  # Access pgAdmin at http://localhost:5050
+    depends_on:
+      - postgres
+    networks:
+      - stock_data
+
+  # -----------------------------
+  # Volumes and Networks
+  # -----------------------------
+
+volumes:
+  spark-data:        # Shared storage for Spark logs and data
+  kafka_data:        # Kafka broker persistent storage
+  postgres_data:     # PostgreSQL persistent storage
+
+networks:
+  stock_data:        # Single network connecting all services
