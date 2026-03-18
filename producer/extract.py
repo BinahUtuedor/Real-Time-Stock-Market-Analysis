@@ -3,10 +3,8 @@ from config import logger, headers, url
 
 
 def connect_to_api():
-    stocks = ['TSLA','MSFT','GOOGL']
-    
+    stocks = ['TSLA','MSFT','GOOGL']   
     json_response = []
-
     for stock in range(0, len(stocks)):
     
         querystring = {"function":"TIME_SERIES_INTRADAY",
@@ -20,8 +18,7 @@ def connect_to_api():
 
             response.raise_for_status()
 
-            data = response.json()
-    
+            data = response.json()    
             logger.info(f"Stocks {stocks[stock]} loaded successfully")
 
             json_response.append(data)
@@ -31,7 +28,6 @@ def connect_to_api():
             break
 
     return json_response
-
 
 
 def extract_json(response):

@@ -34,8 +34,7 @@ services:
       "/opt/spark/bin/spark-class",
       "org.apache.spark.deploy.worker.Worker", # Start Spark Worker
       "spark://spark-master:7077",             # Connect to Spark Master
-      "--webui-port","8081"                    # Port for Spark Worker UI
-    ]
+      "--webui-port","8081"]                    # Port for Spark Worker UI
     environment:
       - SPARK_WORKER_CORES=2                  # Number of cores assigned
       - SPARK_WORKER_MEMORY=2G                # Memory assigned to worker
@@ -46,11 +45,27 @@ services:
     networks:
       - stock_data
 
+  consumer:
+    build: 
+      context: ./consumer  #use same apache Spark image for PySpark streaming
+      dockerfile: Dockerfile
+    image: stream_consumer
+    container_name: consumer #assign a name for the streaming job container
+    depends_on:
+      - spark-master
+      - kafka
+    restart: unless-stopped
+    volumes:
+    - ./ivy_cache:/opt/spark/work-dir/.ivy2
+    - ./consumer:/opt/spark/work-dir/apps
+    networks:
+      - stock_data
+
   # -----------------------------
   # Kafka Broker in KRaft Mode (No Zookeeper)
   # -----------------------------
   kafka:
-    image: confluentinc/cp-kafka:7.5.0
+    image: confluentinc/cp-kafka:7.4.10
     container_name: kafka
     hostname: kafka
     ports:
@@ -59,19 +74,21 @@ services:
     environment:
       KAFKA_KRAFT_MODE: "true"                    # Enable KRaft mode (no Zookeeper)
       KAFKA_PROCESS_ROLES: controller,broker      # Broker also acts as controller
-      KAFKA_BROKER_ID: 1                          # Unique broker ID
+      KAFKA_NODE_ID: 1                          # Unique broker ID
       KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093" # Controller quorum configuration
       KAFKA_LISTENERS: PLAINTEXT_INTERNAL://kafka:9092,PLAINTEXT_EXTERNAL://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
+      # Map listener name to security protocols
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT_INTERNAL:PLAINTEXT,PLAINTEXT_EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL # Brokers communicate via internal listener
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER           #Controller listener name
+      # Tell kafka how it should advertise itself for clients
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT_INTERNAL://kafka:9092,PLAINTEXT_EXTERNAL://localhost:9094
-      KAFKA_LOGS_DIRS: /var/lib/kafka/data
+      KAFKA_LOGS_DIRS: /var/lib/kafka/data      # Directory for kafka logs (message data)
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"     # Auto-create topics if not exist
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1   # Single-broker replication
       KAFKA_LOG_RETENTION_HOURS: 168             # Log retention 7 days
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0  # Reduce consumer group rebalance delay
-      CLUSTER_ID: "veV7vmVXQCCawZZrb8YzKg"         # Must be a valid Kafka cluster UUID
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0  # No delay befroe consumer rebalance 
+      CLUSTER_ID: "veV7vmVXQCCawZZrb8YzKg"         # Unique cluster ID  for kafka. Must be a valid Kafka cluster UUID. Generate using command from terminal
     volumes:
       - kafka_data:/var/lib/kafka/data          # Persist Kafka message data/logs
     networks:
@@ -99,16 +116,18 @@ services:
   # -----------------------------
   postgres:
     image: debezium/postgres:17
+    env_file:
+      - .env
     container_name: postgres_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
       POSTGRES_DB: stock_data
     ports:
       - "5432:5432"  # Default PostgreSQL port
     volumes:
-      - postgres_data:/var/lib/postgresql/data  # Persist database
+      - postgres_data:/var/lib/postgres/data  # Persist database
     networks:
       - stock_data
 
@@ -136,6 +155,7 @@ services:
 volumes:
   spark-data:        # Shared storage for Spark logs and data
   kafka_data:        # Kafka broker persistent storage
+  ivy_cache:
   postgres_data:     # PostgreSQL persistent storage
 
 networks:

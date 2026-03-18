@@ -5,7 +5,7 @@ The project implements a real-time data pipeline that extracts stock data from v
 All components are containerised with Docker for easy deployment.
 
 ### Data Pipeline Architecture
-![Data Pipeline Architecture](./img/real_time_pipeline.png.jpg)
+![Data Pipeline Architecture](./img/real_time_pipeline.jpg)
 
 
 Project Tech Stack and Flow
