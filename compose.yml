@@ -125,7 +125,7 @@ services:
       POSTGRES_PASSWORD: admin
       POSTGRES_DB: stock_data
     ports:
-      - "5432:5432"  # Default PostgreSQL port
+      - "5434:5432"  # Default PostgreSQL port
     volumes:
       - postgres_data:/var/lib/postgres/data  # Persist database
     networks:
