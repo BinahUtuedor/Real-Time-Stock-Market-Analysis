@@ -10,6 +10,13 @@ if not os.path.exists(checkpoint_dir):
     os.makedirs(checkpoint_dir)
 
 
+postgres_config = {
+    "url": "jdbc:postgresql://postgres:5432/stock_data",
+    "user": "admin",
+    "password": "admin",
+    "dbtable": "stocks",
+    "driver": "org.postgresql.Driver"
+}
 
 # The schema structure matching the new data coming from kafka 
 kafka_data_schema = StructType([
@@ -48,13 +55,26 @@ processed_df = parsed_df.select([
     col("symbol").alias("symbol")
 ])
 
-#display the results to the terminal (console output mode)
-query = processed_df.writeStream \
+# Function to write each micro-batch to Postgres
+def write_to_postgres(batch_df, batch_id):
+    """
+    Writes a microbatch DataFrame to PostgreSQL using JDBC in 'append' mode. 
+    """
+    batch_df.write \
+        .format("jdbc") \
+        .mode("append") \
+        .options(**postgres_config) \
+        .save()
+    
+# --- Stream to PostgreSQL using foreachBatch ---
+query = ( 
+    processed_df.writeStream \
+    .foreachBatch(write_to_postgres) \
+    .option('checkpointLocation', checkpoint_dir)
     .outputMode("append") \
-    .format("console") \
-    .option("truncate", "false") \
-    .option("checkpointLocation", checkpoint_dir) \
     .start()
+)
+
 
 #wait for the termination of the query
 query.awaitTermination()

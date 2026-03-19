@@ -19,6 +19,7 @@ def connect_to_api():
             response.raise_for_status()
 
             data = response.json()    
+            
             logger.info(f"Stocks {stocks[stock]} loaded successfully")
 
             json_response.append(data)
