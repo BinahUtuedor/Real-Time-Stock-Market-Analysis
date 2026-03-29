@@ -64,6 +64,41 @@ The pipeline follows a modern real-time data architecture:
 
 ---
 
+## Sample Use Cases
+- Real-time stock price monitoring
+- Trading volume analysis
+- Sentiment-driven trading signals
+- Market anomaly detection
 
 
+## Getting Started
+### Prerequisites
+- Python 3.10+
+- Docker & Docker Compose
+- Kafka cluster (local or cloud)
+- Spark 3.x
+- PostgreSQL 17+
+- Power BI Desktop or Power BI Service
+
+---
+
+### Installation
+
+```bash
+git clone https://github.com/BinahUtuedor/Real-Time-Stock-Market-Analysis
+cd real-time-stock-market-analysis
+pip install -r requirements.txt
+
+```
+
+### Running the Project (High-Level)
+
+```bash
+1. Start services using Docker:
+   docker-compose up -d
+
+2. Run Kafka producers:
+   python producer/main.py
+
+```
 
