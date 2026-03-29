@@ -155,7 +155,7 @@ services:
 volumes:
   spark-data:        # Shared storage for Spark logs and data
   kafka_data:        # Kafka broker persistent storage
-  ivy_cache:
+  ivy_cache:         # named volume for pyspark installked packages
   postgres_data:     # PostgreSQL persistent storage
 
 networks:
