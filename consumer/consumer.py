@@ -9,7 +9,7 @@ checkpoint_dir = "/tmp/checkpoint/kafka_to_postgres"
 if not os.path.exists(checkpoint_dir):
     os.makedirs(checkpoint_dir)
 
-
+# Connect to the postgres database
 postgres_config = {
     "url": "jdbc:postgresql://postgres:5432/stock_data",
     "user": "admin",
@@ -65,7 +65,17 @@ def write_to_postgres(batch_df, batch_id):
         .mode("append") \
         .options(**postgres_config) \
         .save()
-    
+
+# # --- Display the result to the terminal (console output mode) ---
+# query = (
+#     processed_df.writeStream
+#     .outputMode("append")
+#     .format("console")
+#     .option("truncate", "false")
+#     .option("checkpointLocation", checkpoint_dir)
+#     .start()
+# )
+
 # --- Stream to PostgreSQL using foreachBatch ---
 query = ( 
     processed_df.writeStream \
