@@ -70,6 +70,7 @@ The pipeline follows a modern real-time data architecture:
 - Sentiment-driven trading signals
 - Market anomaly detection
 
+---
 
 ## Getting Started
 ### Prerequisites
